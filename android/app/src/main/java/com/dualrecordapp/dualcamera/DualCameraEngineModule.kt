@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.BaseActivityEventListener
 import com.facebook.react.bridge.Promise
@@ -13,9 +15,10 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.WritableNativeArray
 import com.facebook.react.bridge.WritableNativeMap
 
+@RequiresApi(Build.VERSION_CODES.P)
 class DualCameraEngineModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
-    private val captureManager = DualCameraCaptureManager(reactContext)
+    private val captureManager = DualCameraCaptureManager.getInstance(reactContext)
     private var directoryPromise: Promise? = null
 
     private val activityEventListener: ActivityEventListener = object : BaseActivityEventListener() {
@@ -24,12 +27,10 @@ class DualCameraEngineModule(reactContext: ReactApplicationContext) : ReactConte
                 if (resultCode == Activity.RESULT_OK) {
                     intent?.data?.let { uri ->
                         try {
-                            // Persist permissions
                             val takeFlags: Int = intent.flags and
                                     (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                             reactApplicationContext.contentResolver.takePersistableUriPermission(uri, takeFlags)
 
-                            // Save to SharedPreferences
                             val prefs = reactApplicationContext.getSharedPreferences("DualCameraPrefs", Context.MODE_PRIVATE)
                             prefs.edit().putString("output_directory_uri", uri.toString()).apply()
 
@@ -118,13 +119,11 @@ class DualCameraEngineModule(reactContext: ReactApplicationContext) : ReactConte
         val prefs = reactApplicationContext.getSharedPreferences("DualCameraPrefs", Context.MODE_PRIVATE)
         val uriStr = prefs.getString("output_directory_uri", null)
 
-        // Verify if we still have permission
         if (uriStr != null) {
             val hasPermission = reactApplicationContext.contentResolver.persistedUriPermissions.any {
                 it.uri.toString() == uriStr && it.isWritePermission
             }
             if (!hasPermission) {
-                // We lost permission, clear prefs
                 prefs.edit().remove("output_directory_uri").apply()
                 promise.resolve(null)
                 return

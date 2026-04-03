@@ -2,9 +2,12 @@ package com.dualrecordapp.dualcamera
 
 import android.content.Context
 import android.graphics.SurfaceTexture
+import android.os.Build
 import android.view.TextureView
 import android.widget.FrameLayout
+import androidx.annotation.RequiresApi
 
+@RequiresApi(Build.VERSION_CODES.P)
 class DualCameraView(context: Context) : FrameLayout(context), TextureView.SurfaceTextureListener {
 
     private val textureView: TextureView = TextureView(context)
@@ -18,7 +21,7 @@ class DualCameraView(context: Context) : FrameLayout(context), TextureView.Surfa
 
     fun setActiveLensId(id: String?) {
         this.activeLensId = id
-        // Restart preview or re-bind camera with new lens ID
+        DualCameraCaptureManager.getInstance(context).updateLensSelection(isSecondary, id)
     }
 
     fun setIsSecondary(secondary: Boolean) {
@@ -26,8 +29,7 @@ class DualCameraView(context: Context) : FrameLayout(context), TextureView.Surfa
     }
 
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-        // Here we would typically pass the Surface down to the DualCameraCaptureManager
-        // For example: captureManager.addPreviewSurface(Surface(surface), isSecondary)
+        DualCameraCaptureManager.getInstance(context).setPreviewSurface(surface, width, height, isSecondary, activeLensId)
     }
 
     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
@@ -35,6 +37,7 @@ class DualCameraView(context: Context) : FrameLayout(context), TextureView.Surfa
     }
 
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+        DualCameraCaptureManager.getInstance(context).removePreviewSurface(isSecondary)
         return true
     }
 

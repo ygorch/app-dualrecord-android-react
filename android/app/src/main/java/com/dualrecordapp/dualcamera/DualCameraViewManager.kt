@@ -1,9 +1,12 @@
 package com.dualrecordapp.dualcamera
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.annotations.ReactProp
 
+@RequiresApi(Build.VERSION_CODES.P)
 class DualCameraViewManager : SimpleViewManager<DualCameraView>() {
 
     override fun getName(): String {
