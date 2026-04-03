@@ -11,9 +11,10 @@ export default function CameraHUD() {
   const [isRecording, setIsRecording] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'pip' | 'split'>('pip');
   const [isFallback, setIsFallback] = useState(false);
+  const [outputDir, setOutputDir] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchLenses() {
+    async function fetchSetup() {
       try {
         const availableLenses = await DualCameraEngine.getAvailablePhysicalLenses();
 
@@ -27,28 +28,43 @@ export default function CameraHUD() {
           }
           setIsFallback(false);
         } else {
-          // Fallback UI para aparelhos sem multiplas lentes fisicas traseiras lógicas
           const fallbackLens = { id: '0', focalLength: 2.5, label: '1x (Principal)' };
           setLenses([fallbackLens]);
           setLens16_9(fallbackLens.id);
           setLens9_16(fallbackLens.id);
           setIsFallback(true);
         }
+
+        const savedDir = await DualCameraEngine.getSavedOutputDirectory();
+        setOutputDir(savedDir);
       } catch (e) {
-        console.error("Error fetching lenses:", e);
+        console.error("Error during initial setup:", e);
       }
     }
-    fetchLenses();
+    fetchSetup();
   }, []);
 
   const handleRecord = async () => {
     if (isRecording) {
       await DualCameraEngine.stopRecording();
       setIsRecording(false);
-      Alert.alert('Recording Stopped', 'Files saved to movies directory.');
+      Alert.alert('Recording Stopped', 'Files saved successfully.');
     } else {
       await DualCameraEngine.startRecording();
       setIsRecording(true);
+    }
+  };
+
+  const handleSelectDirectory = async () => {
+    try {
+      const newDir = await DualCameraEngine.selectOutputDirectory();
+      if (newDir) {
+        setOutputDir(newDir);
+        Alert.alert('Directory Saved', 'Future recordings will be saved here.');
+      }
+    } catch (e) {
+      console.error("Error selecting directory:", e);
+      Alert.alert('Error', 'Failed to select directory.');
     }
   };
 
@@ -100,6 +116,10 @@ export default function CameraHUD() {
       <Animated.View style={[styles.cameraWrapper, style9_16, styles.shadow]}>
         <DualCameraView style={styles.camera} activeLensId={lens9_16 || undefined} isSecondary={true} />
       </Animated.View>
+
+      <TouchableOpacity style={styles.settingsBtn} onPress={handleSelectDirectory}>
+        <Text style={styles.settingsIcon}>⚙️</Text>
+      </TouchableOpacity>
 
       <View style={styles.glassPanel}>
         <View style={styles.lensControls}>
@@ -162,6 +182,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 5,
     elevation: 10,
+  },
+  settingsBtn: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+    backdropFilter: 'blur(10px)',
+  },
+  settingsIcon: {
+    fontSize: 20,
   },
   glassPanel: {
     position: 'absolute',

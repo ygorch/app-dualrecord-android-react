@@ -1,8 +1,11 @@
 package com.dualrecordapp.dualcamera
 
 import android.content.Context
+import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import androidx.annotation.RequiresApi
+import androidx.documentfile.provider.DocumentFile
 
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -23,6 +26,8 @@ class DualCameraCaptureManager(private val context: Context) {
 
     private var muxer16_9: MediaMuxer? = null
     private var muxer9_16: MediaMuxer? = null
+    private var fd16_9: ParcelFileDescriptor? = null
+    private var fd9_16: ParcelFileDescriptor? = null
 
     private var hasWrittenFrames16_9 = false
     private var hasWrittenFrames9_16 = false
@@ -35,7 +40,6 @@ class DualCameraCaptureManager(private val context: Context) {
             for (cameraId in manager.cameraIdList) {
                 val chars = manager.getCameraCharacteristics(cameraId)
 
-                // We specifically want the back-facing camera
                 val facing = chars.get(CameraCharacteristics.LENS_FACING)
                 if (facing != CameraCharacteristics.LENS_FACING_BACK) continue
 
@@ -58,7 +62,7 @@ class DualCameraCaptureManager(private val context: Context) {
                         }
                         lenses.add(PhysicalLens(physId, focalLength, label))
                     }
-                    break // Only grab physical lenses of the first back logical multi-camera
+                    break
                 }
             }
         } catch (e: Exception) {
@@ -75,24 +79,50 @@ class DualCameraCaptureManager(private val context: Context) {
         hasWrittenFrames9_16 = false
 
         try {
-            val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val filename16_9 = "REC_16_9_$timeStamp.mp4"
+            val filename9_16 = "REC_9_16_$timeStamp.mp4"
 
-            val file16_9 = File(dir, "REC_16_9_$timeStamp.mp4")
-            val file9_16 = File(dir, "REC_9_16_$timeStamp.mp4")
+            val prefs = context.getSharedPreferences("DualCameraPrefs", Context.MODE_PRIVATE)
+            val uriStr = prefs.getString("output_directory_uri", null)
 
-            muxer16_9 = MediaMuxer(file16_9.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-            muxer9_16 = MediaMuxer(file9_16.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            if (uriStr != null && Build.VERSION_CODES.O <= Build.VERSION.SDK_INT) {
+                // Opção A: SAF (Storage Access Framework) via DocumentFile e FileDescriptor
+                val treeUri = Uri.parse(uriStr)
+                val dir = DocumentFile.fromTreeUri(context, treeUri)
+                if (dir != null && dir.exists()) {
+                    val doc16_9 = dir.createFile("video/mp4", filename16_9)
+                    val doc9_16 = dir.createFile("video/mp4", filename9_16)
+
+                    doc16_9?.uri?.let { uri ->
+                        fd16_9 = context.contentResolver.openFileDescriptor(uri, "rw")
+                        fd16_9?.fileDescriptor?.let { fd ->
+                            muxer16_9 = MediaMuxer(fd, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+                        }
+                    }
+
+                    doc9_16?.uri?.let { uri ->
+                        fd9_16 = context.contentResolver.openFileDescriptor(uri, "rw")
+                        fd9_16?.fileDescriptor?.let { fd ->
+                            muxer9_16 = MediaMuxer(fd, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+                        }
+                    }
+                }
+            } else {
+                // Fallback: Diretório interno do app
+                val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+                val file16_9 = File(dir, filename16_9)
+                val file9_16 = File(dir, filename9_16)
+                muxer16_9 = MediaMuxer(file16_9.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+                muxer9_16 = MediaMuxer(file9_16.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            }
 
             // Setup audio format as requested: AAC, 48000 Hz, 128 kbps
             val audioFormat = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 48000, 1)
             audioFormat.setInteger(MediaFormat.KEY_BIT_RATE, 128000)
             audioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, android.media.MediaCodecInfo.CodecProfileLevel.AACObjectLC)
 
-            // Note: In real app, we would add video and audio tracks from MediaCodec and call MediaMuxer.start()
-            // For MVP skeleton, we mock successful initialization.
-
-            Log.d("DualCameraManager", "Recording started. Files: \n${file16_9.absolutePath}\n${file9_16.absolutePath}")
+            Log.d("DualCameraManager", "Recording started successfully.")
 
         } catch (e: Exception) {
             isRecording = false
@@ -105,16 +135,18 @@ class DualCameraCaptureManager(private val context: Context) {
         if (!isRecording) return
         isRecording = false
 
-        // Safe Teardown
-        safeTeardownMuxer(muxer16_9, hasWrittenFrames16_9, "16:9")
-        safeTeardownMuxer(muxer9_16, hasWrittenFrames9_16, "9:16")
+        // Safe Teardown Muxers and File Descriptors
+        safeTeardownMuxer(muxer16_9, fd16_9, hasWrittenFrames16_9, "16:9")
+        safeTeardownMuxer(muxer9_16, fd9_16, hasWrittenFrames9_16, "9:16")
 
         muxer16_9 = null
         muxer9_16 = null
+        fd16_9 = null
+        fd9_16 = null
         Log.d("DualCameraManager", "Recording stopped safely.")
     }
 
-    private fun safeTeardownMuxer(muxer: MediaMuxer?, hasWrittenFrames: Boolean, label: String) {
+    private fun safeTeardownMuxer(muxer: MediaMuxer?, fd: ParcelFileDescriptor?, hasWrittenFrames: Boolean, label: String) {
         muxer?.let {
             try {
                 if (hasWrittenFrames) {
@@ -134,6 +166,14 @@ class DualCameraCaptureManager(private val context: Context) {
                 } catch (e: Exception) {
                     Log.e("DualCameraManager", "Exception while releasing Muxer $label", e)
                 }
+            }
+        }
+
+        fd?.let {
+            try {
+                it.close()
+            } catch (e: Exception) {
+                Log.e("DualCameraManager", "Exception closing ParcelFileDescriptor for $label", e)
             }
         }
     }

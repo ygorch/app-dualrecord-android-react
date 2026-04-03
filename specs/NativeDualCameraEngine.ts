@@ -10,6 +10,8 @@ export interface Spec extends TurboModule {
   getAvailablePhysicalLenses(): Promise<PhysicalLens[]>;
   startRecording(): Promise<boolean>;
   stopRecording(): Promise<boolean>;
+  selectOutputDirectory(): Promise<string | null>;
+  getSavedOutputDirectory(): Promise<string | null>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('DualCameraEngine');

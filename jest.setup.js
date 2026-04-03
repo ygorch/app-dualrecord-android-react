@@ -21,6 +21,8 @@ jest.mock('./specs/NativeDualCameraEngine', () => {
     getAvailablePhysicalLenses: jest.fn(() => Promise.resolve([{ id: '0', focalLength: 1.8, label: 'Wide' }])),
     startRecording: jest.fn(() => Promise.resolve(true)),
     stopRecording: jest.fn(() => Promise.resolve(true)),
+    selectOutputDirectory: jest.fn(() => Promise.resolve(null)),
+    getSavedOutputDirectory: jest.fn(() => Promise.resolve(null)),
   };
 });
 

@@ -1,5 +1,11 @@
 package com.dualrecordapp.dualcamera
 
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import com.facebook.react.bridge.ActivityEventListener
+import com.facebook.react.bridge.BaseActivityEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -10,6 +16,41 @@ import com.facebook.react.bridge.WritableNativeMap
 class DualCameraEngineModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
     private val captureManager = DualCameraCaptureManager(reactContext)
+    private var directoryPromise: Promise? = null
+
+    private val activityEventListener: ActivityEventListener = object : BaseActivityEventListener() {
+        override fun onActivityResult(activity: Activity?, requestCode: Int, resultCode: Int, intent: Intent?) {
+            if (requestCode == REQUEST_CODE_OPEN_DOCUMENT_TREE) {
+                if (resultCode == Activity.RESULT_OK) {
+                    intent?.data?.let { uri ->
+                        try {
+                            // Persist permissions
+                            val takeFlags: Int = intent.flags and
+                                    (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                            reactApplicationContext.contentResolver.takePersistableUriPermission(uri, takeFlags)
+
+                            // Save to SharedPreferences
+                            val prefs = reactApplicationContext.getSharedPreferences("DualCameraPrefs", Context.MODE_PRIVATE)
+                            prefs.edit().putString("output_directory_uri", uri.toString()).apply()
+
+                            directoryPromise?.resolve(uri.toString())
+                        } catch (e: Exception) {
+                            directoryPromise?.reject("SAF_ERROR", "Failed to persist permission", e)
+                        }
+                    } ?: run {
+                        directoryPromise?.resolve(null)
+                    }
+                } else {
+                    directoryPromise?.resolve(null)
+                }
+                directoryPromise = null
+            }
+        }
+    }
+
+    init {
+        reactContext.addActivityEventListener(activityEventListener)
+    }
 
     override fun getName(): String {
         return "DualCameraEngine"
@@ -51,5 +92,48 @@ class DualCameraEngineModule(reactContext: ReactApplicationContext) : ReactConte
         } catch (e: Exception) {
             promise.reject("STOP_RECORD_ERROR", e.message, e)
         }
+    }
+
+    @ReactMethod
+    fun selectOutputDirectory(promise: Promise) {
+        val currentActivity = currentActivity
+        if (currentActivity == null) {
+            promise.reject("E_ACTIVITY_DOES_NOT_EXIST", "Activity doesn't exist")
+            return
+        }
+
+        try {
+            directoryPromise = promise
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+            intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            currentActivity.startActivityForResult(intent, REQUEST_CODE_OPEN_DOCUMENT_TREE)
+        } catch (e: Exception) {
+            directoryPromise = null
+            promise.reject("E_FAILED_TO_SHOW_PICKER", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun getSavedOutputDirectory(promise: Promise) {
+        val prefs = reactApplicationContext.getSharedPreferences("DualCameraPrefs", Context.MODE_PRIVATE)
+        val uriStr = prefs.getString("output_directory_uri", null)
+
+        // Verify if we still have permission
+        if (uriStr != null) {
+            val hasPermission = reactApplicationContext.contentResolver.persistedUriPermissions.any {
+                it.uri.toString() == uriStr && it.isWritePermission
+            }
+            if (!hasPermission) {
+                // We lost permission, clear prefs
+                prefs.edit().remove("output_directory_uri").apply()
+                promise.resolve(null)
+                return
+            }
+        }
+        promise.resolve(uriStr)
+    }
+
+    companion object {
+        private const val REQUEST_CODE_OPEN_DOCUMENT_TREE = 4242
     }
 }
