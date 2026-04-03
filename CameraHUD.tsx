@@ -40,6 +40,8 @@ export default function CameraHUD() {
             return;
           }
           setPermissionsGranted(true);
+        } else {
+            setPermissionsGranted(true);
         }
 
         const availableLenses = await DualCameraEngine.getAvailablePhysicalLenses();
@@ -63,7 +65,6 @@ export default function CameraHUD() {
 
         let savedDir = await DualCameraEngine.getSavedOutputDirectory();
         if (!savedDir) {
-           // Solicita o diretório logo na inicialização se ainda não estiver configurado
            savedDir = await DualCameraEngine.selectOutputDirectory();
         }
         setOutputDir(savedDir);
@@ -153,12 +154,16 @@ export default function CameraHUD() {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.cameraWrapper, style16_9]}>
-        <DualCameraView style={styles.camera} activeLensId={lens16_9 || undefined} isSecondary={false} />
-      </Animated.View>
-      <Animated.View style={[styles.cameraWrapper, style9_16, styles.shadow]}>
-        <DualCameraView style={styles.camera} activeLensId={lens9_16 || undefined} isSecondary={true} />
-      </Animated.View>
+      {permissionsGranted && (
+        <>
+          <View style={[styles.cameraWrapper, style16_9]}>
+            <DualCameraView style={styles.camera} activeLensId={lens16_9 || undefined} isSecondary={false} />
+          </View>
+          <View style={[styles.cameraWrapper, style9_16, styles.shadow]}>
+            <DualCameraView style={styles.camera} activeLensId={lens9_16 || undefined} isSecondary={true} />
+          </View>
+        </>
+      )}
 
       <TouchableOpacity style={styles.settingsBtn} onPress={handleSelectDirectory}>
         <Text style={styles.settingsIcon}>⚙️</Text>
