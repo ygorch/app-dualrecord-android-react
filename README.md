@@ -1,42 +1,79 @@
-# DualRecord App (React Native & Android Native)
+This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
-Um aplicativo avançado de gravação de vídeo para Android que permite a captura simultânea utilizando múltiplas lentes do dispositivo (ex: Principal e Ultrawide), gerando arquivos independentes em proporções diferentes (16:9 e 9:16) em tempo real.
+# Getting Started
 
-Este projeto utiliza uma **Arquitetura Híbrida**, onde o **React Native** entrega uma UI Premium e reativa, enquanto **Módulos Nativos customizados em Kotlin** lidam com as pesadas restrições de I/O e hardware do Android (Camera2 API, MediaCodec, MediaMuxer).
+>**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
 
-## 🚀 Principais Funcionalidades
+## Step 1: Start the Metro Server
 
-* **Gravação Dupla Simultânea:** Captura de duas lentes traseiras (Physical Cameras) através de uma única Sessão Lógica (Logical Multi-Camera API).
-* **Saídas Independentes:** Multiplexação para dois arquivos MP4 separados (um em 16:9 e outro em 9:16) preservando o ISP do aparelho.
-* **Single Audio Engine:** Captura centralizada de áudio PCM com injeção síncrona nos dois `MediaMuxers` para garantir que o áudio não dessincronize do vídeo.
-* **Premium HUD:** Interface "Glassmorphism" construída com React Native, oferecendo layouts interativos em *Picture-in-Picture (PiP)* e *Split-Screen* sem distorção (Center Crop absoluto).
-* **Hardware Fallback:** Degradação graciosa gerenciada nativamente. Se o dispositivo não suportar concorrência múltipla nativa (falta de banda no ISP), o app opera automaticamente em modo de câmera única.
+First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
 
-## 🏗️ Arquitetura
+To start Metro, run the following command from the _root_ of your React Native project:
 
-O projeto contorna as limitações de bibliotecas prontas de JavaScript ao delegar todo o trabalho de hardware para o Kotlin:
+```bash
+# using npm
+npm start
 
-1. **Frontend (React Native / TypeScript):**
-   - Gerencia a máquina de estados complexa (Exclusão Mútua de lentes).
-   - Renderiza a `DualCameraView` (Native UI Component).
-   - Executa animações de UI (Reanimated) de layout PiP e Split-Screen.
-2. **Backend (Android Native / Kotlin):**
-   - **`DualCameraEngineModule`:** A ponte (Turbo Module) que expõe métodos como `startRecording` e `stopRecording` para o JS, implementando rotinas rigorosas de *Safe Teardown* para evitar *IllegalStateExceptions*.
-   - **`DualCameraCaptureManager`:** Orquestrador da `Camera2` API focado em identificar `LogicalMultiCameras` e separar streams físicos usando `setPhysicalCameraId`.
+# OR using Yarn
+yarn start
+```
 
-## 🛠️ Pré-requisitos
+## Step 2: Start your Application
 
-Para rodar este projeto localmente, seu ambiente precisa estar configurado para o desenvolvimento React Native com Android Nativo moderno:
+Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
 
-* **Node.js** (v20 ou superior)
-* **Yarn** ou **npm**
-* **Java Development Kit (JDK):** Versão 17 ou 21 recomendada.
-* **Android Studio:** Configurado com Android SDK 34+.
-* **Dispositivo Físico:** Devido ao uso agressivo da Câmera e do Hardware Composer (HWC), **emuladores não são suportados**. Use um aparelho premium moderno (ex: OnePlus 10 Pro, Pixel 7+, Samsung Galaxy S22+).
+### For Android
 
-## 💻 Instalação e Execução
+```bash
+# using npm
+npm run android
 
-1. Clone o repositório:
-   ```bash
-   git clone [https://github.com/ygorch/app-dualrecord-android.git](https://github.com/ygorch/app-dualrecord-android.git)
-   cd app-dualrecord-android
+# OR using Yarn
+yarn android
+```
+
+### For iOS
+
+```bash
+# using npm
+npm run ios
+
+# OR using Yarn
+yarn ios
+```
+
+If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+
+This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+
+## Step 3: Modifying your App
+
+Now that you have successfully run the app, let's modify it.
+
+1. Open `App.tsx` in your text editor of choice and edit some lines.
+2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+
+   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+
+## Congratulations! :tada:
+
+You've successfully run and modified your React Native App. :partying_face:
+
+### Now what?
+
+- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
+- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
+
+# Troubleshooting
+
+If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+
+# Learn More
+
+To learn more about React Native, take a look at the following resources:
+
+- [React Native Website](https://reactnative.dev) - learn more about React Native.
+- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
+- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
+- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
+- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
