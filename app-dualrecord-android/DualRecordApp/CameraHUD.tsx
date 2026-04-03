@@ -1,0 +1,228 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import DualCameraEngine, { PhysicalLens } from './specs/NativeDualCameraEngine';
+import DualCameraView from './specs/DualCameraViewNativeComponent';
+
+export default function CameraHUD() {
+  const [lenses, setLenses] = useState<PhysicalLens[]>([]);
+  const [lens16_9, setLens16_9] = useState<string | null>(null);
+  const [lens9_16, setLens9_16] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<'pip' | 'split'>('pip');
+
+  useEffect(() => {
+    async function fetchLenses() {
+      try {
+        const availableLenses = await DualCameraEngine.getAvailablePhysicalLenses();
+        setLenses(availableLenses);
+        if (availableLenses.length > 0) {
+          setLens16_9(availableLenses[0].id);
+          if (availableLenses.length > 1) {
+            setLens9_16(availableLenses[1].id);
+          } else {
+             setLens9_16(availableLenses[0].id); // Fallback to same if only 1 lens
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching lenses:", e);
+      }
+    }
+    fetchLenses();
+  }, []);
+
+  const handleRecord = async () => {
+    if (isRecording) {
+      await DualCameraEngine.stopRecording();
+      setIsRecording(false);
+      Alert.alert('Recording Stopped', 'Files saved to movies directory.');
+    } else {
+      await DualCameraEngine.startRecording();
+      setIsRecording(true);
+    }
+  };
+
+  const style16_9 = useAnimatedStyle(() => {
+    if (layoutMode === 'split') {
+      return {
+        top: withTiming(0),
+        height: withTiming('50%'),
+        width: withTiming('100%'),
+        zIndex: 1,
+      };
+    } else {
+      return {
+        top: withTiming(0),
+        height: withTiming('100%'),
+        width: withTiming('100%'),
+        zIndex: 1,
+      };
+    }
+  });
+
+  const style9_16 = useAnimatedStyle(() => {
+    if (layoutMode === 'split') {
+      return {
+        top: withTiming('50%'),
+        height: withTiming('50%'),
+        width: withTiming('100%'),
+        zIndex: 2,
+        borderRadius: withTiming(0),
+        right: withTiming(0),
+      };
+    } else {
+      return {
+        top: withTiming('5%'),
+        height: withTiming(200),
+        width: withTiming(120),
+        zIndex: 2,
+        borderRadius: withTiming(12),
+        right: withTiming('5%'),
+      };
+    }
+  });
+
+  return (
+    <View style={styles.container}>
+      <Animated.View style={[styles.cameraWrapper, style16_9]}>
+        <DualCameraView style={styles.camera} activeLensId={lens16_9 || undefined} isSecondary={false} />
+      </Animated.View>
+      <Animated.View style={[styles.cameraWrapper, style9_16, styles.shadow]}>
+        <DualCameraView style={styles.camera} activeLensId={lens9_16 || undefined} isSecondary={true} />
+      </Animated.View>
+
+      <View style={styles.glassPanel}>
+        <View style={styles.lensControls}>
+          <Text style={styles.label}>16:9 Lens:</Text>
+          {lenses.map(lens => (
+            <TouchableOpacity
+              key={`16_9_${lens.id}`}
+              style={[styles.lensBtn, lens16_9 === lens.id && styles.lensBtnActive, lens9_16 === lens.id && styles.lensBtnDisabled]}
+              disabled={lens9_16 === lens.id}
+              onPress={() => setLens16_9(lens.id)}
+            >
+              <Text style={styles.lensText}>{lens.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.lensControls}>
+          <Text style={styles.label}>9:16 Lens:</Text>
+          {lenses.map(lens => (
+            <TouchableOpacity
+              key={`9_16_${lens.id}`}
+              style={[styles.lensBtn, lens9_16 === lens.id && styles.lensBtnActive, lens16_9 === lens.id && styles.lensBtnDisabled]}
+              disabled={lens16_9 === lens.id}
+              onPress={() => setLens9_16(lens.id)}
+            >
+              <Text style={styles.lensText}>{lens.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.layoutBtn} onPress={() => setLayoutMode(layoutMode === 'pip' ? 'split' : 'pip')}>
+            <Text style={styles.layoutBtnText}>Toggle Layout</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.recordBtn, isRecording && styles.recordBtnActive]} onPress={handleRecord}>
+            <View style={styles.recordInner} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+  cameraWrapper: {
+    position: 'absolute',
+    overflow: 'hidden',
+  },
+  camera: {
+    width: '100%',
+    height: '100%',
+  },
+  shadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 10,
+  },
+  glassPanel: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 20,
+    paddingBottom: 40,
+    zIndex: 10,
+    backdropFilter: 'blur(10px)',
+  },
+  lensControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  label: {
+    color: 'white',
+    marginRight: 10,
+    fontWeight: 'bold',
+    width: 80,
+  },
+  lensBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    marginRight: 5,
+  },
+  lensBtnActive: {
+    backgroundColor: '#007AFF',
+  },
+  lensBtnDisabled: {
+    opacity: 0.3,
+  },
+  lensText: {
+    color: 'white',
+    fontSize: 12,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  layoutBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    padding: 10,
+    borderRadius: 20,
+  },
+  layoutBtnText: {
+    color: 'white',
+  },
+  recordBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 4,
+    borderColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordBtnActive: {
+    borderColor: 'red',
+  },
+  recordInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'red',
+  }
+});
