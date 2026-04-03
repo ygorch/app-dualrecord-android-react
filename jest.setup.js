@@ -1,4 +1,3 @@
-jest.mock('react-native-worklets', () => ({}));
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
