@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, PermissionsAndroid, Platform } from 'react-native';
-import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import DualCameraEngine, { PhysicalLens } from './specs/NativeDualCameraEngine';
 import DualCameraView from './specs/DualCameraViewNativeComponent';
 
@@ -156,12 +157,12 @@ export default function CameraHUD() {
     <View style={styles.container}>
       {permissionsGranted && (
         <>
-          <View style={[styles.cameraWrapper, style16_9]}>
+          <Animated.View style={[styles.cameraWrapper, style16_9]}>
             <DualCameraView style={styles.camera} activeLensId={lens16_9 || undefined} isSecondary={false} />
-          </View>
-          <View style={[styles.cameraWrapper, style9_16, styles.shadow]}>
+          </Animated.View>
+          <Animated.View style={[styles.cameraWrapper, style9_16, styles.shadow]}>
             <DualCameraView style={styles.camera} activeLensId={lens9_16 || undefined} isSecondary={true} />
-          </View>
+          </Animated.View>
         </>
       )}
 

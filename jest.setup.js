@@ -3,7 +3,7 @@ jest.mock('react-native-reanimated', () => {
   const React = require('react');
   const View = require('react-native').View;
 
-  const AnimatedView = React.forwardRef((props, ref) => <View {...props} ref={ref} />);
+  const AnimatedView = React.forwardRef((props, ref) => { const View = require('react-native').View; return <View {...props} ref={ref} />; });
 
   return {
     __esModule: true,
@@ -13,6 +13,7 @@ jest.mock('react-native-reanimated', () => {
     },
     useAnimatedStyle: () => ({}),
     withTiming: (val) => val,
+    View: AnimatedView,
   };
 });
 
