@@ -10,19 +10,29 @@ export default function CameraHUD() {
   const [lens9_16, setLens9_16] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'pip' | 'split'>('pip');
+  const [isFallback, setIsFallback] = useState(false);
 
   useEffect(() => {
     async function fetchLenses() {
       try {
         const availableLenses = await DualCameraEngine.getAvailablePhysicalLenses();
-        setLenses(availableLenses);
-        if (availableLenses.length > 0) {
+
+        if (availableLenses && availableLenses.length > 0) {
+          setLenses(availableLenses);
           setLens16_9(availableLenses[0].id);
           if (availableLenses.length > 1) {
             setLens9_16(availableLenses[1].id);
           } else {
-             setLens9_16(availableLenses[0].id); // Fallback to same if only 1 lens
+             setLens9_16(availableLenses[0].id);
           }
+          setIsFallback(false);
+        } else {
+          // Fallback UI para aparelhos sem multiplas lentes fisicas traseiras lógicas
+          const fallbackLens = { id: '0', focalLength: 2.5, label: '1x (Principal)' };
+          setLenses([fallbackLens]);
+          setLens16_9(fallbackLens.id);
+          setLens9_16(fallbackLens.id);
+          setIsFallback(true);
         }
       } catch (e) {
         console.error("Error fetching lenses:", e);
@@ -97,8 +107,8 @@ export default function CameraHUD() {
           {lenses.map(lens => (
             <TouchableOpacity
               key={`16_9_${lens.id}`}
-              style={[styles.lensBtn, lens16_9 === lens.id && styles.lensBtnActive, lens9_16 === lens.id && styles.lensBtnDisabled]}
-              disabled={lens9_16 === lens.id}
+              style={[styles.lensBtn, lens16_9 === lens.id && styles.lensBtnActive, !isFallback && lens9_16 === lens.id && styles.lensBtnDisabled]}
+              disabled={!isFallback && lens9_16 === lens.id}
               onPress={() => setLens16_9(lens.id)}
             >
               <Text style={styles.lensText}>{lens.label}</Text>
@@ -110,8 +120,8 @@ export default function CameraHUD() {
           {lenses.map(lens => (
             <TouchableOpacity
               key={`9_16_${lens.id}`}
-              style={[styles.lensBtn, lens9_16 === lens.id && styles.lensBtnActive, lens16_9 === lens.id && styles.lensBtnDisabled]}
-              disabled={lens16_9 === lens.id}
+              style={[styles.lensBtn, lens9_16 === lens.id && styles.lensBtnActive, !isFallback && lens16_9 === lens.id && styles.lensBtnDisabled]}
+              disabled={!isFallback && lens16_9 === lens.id}
               onPress={() => setLens9_16(lens.id)}
             >
               <Text style={styles.lensText}>{lens.label}</Text>
@@ -163,7 +173,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
     zIndex: 10,
-    backdropFilter: 'blur(10px)',
   },
   lensControls: {
     flexDirection: 'row',

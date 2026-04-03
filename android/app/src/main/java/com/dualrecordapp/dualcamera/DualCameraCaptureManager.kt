@@ -18,9 +18,6 @@ import java.util.Locale
 
 data class PhysicalLens(val id: String, val focalLength: Float, val label: String)
 
-
-
-
 @RequiresApi(Build.VERSION_CODES.P)
 class DualCameraCaptureManager(private val context: Context) {
 
@@ -37,6 +34,11 @@ class DualCameraCaptureManager(private val context: Context) {
         try {
             for (cameraId in manager.cameraIdList) {
                 val chars = manager.getCameraCharacteristics(cameraId)
+
+                // We specifically want the back-facing camera
+                val facing = chars.get(CameraCharacteristics.LENS_FACING)
+                if (facing != CameraCharacteristics.LENS_FACING_BACK) continue
+
                 val isLogical = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)?.contains(
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
                 ) == true
@@ -49,24 +51,18 @@ class DualCameraCaptureManager(private val context: Context) {
                         val focalLength = focalLengths?.firstOrNull() ?: 0f
 
                         val label = when {
-                            focalLength < 2.0f -> "Ultrawide"
-                            focalLength in 2.0f..4.0f -> "Wide"
-                            focalLength > 4.0f -> "Telephoto"
+                            focalLength < 2.0f -> "0.6x (Ultrawide)"
+                            focalLength in 2.0f..3.0f -> "1x (Principal)"
+                            focalLength > 3.0f -> "3x (Telephoto)"
                             else -> "Unknown"
                         }
-                        lenses.add(PhysicalLens(physId, focalLength, "$label ($focalLength mm)"))
+                        lenses.add(PhysicalLens(physId, focalLength, label))
                     }
-                    break // Only grab physical lenses of the first logical multi-camera for MVP
+                    break // Only grab physical lenses of the first back logical multi-camera
                 }
             }
         } catch (e: Exception) {
             Log.e("DualCameraManager", "Error getting camera characteristics", e)
-        }
-
-        // Mock fallback if no logical multi camera found (e.g. emulator)
-        if (lenses.isEmpty()) {
-             lenses.add(PhysicalLens("0", 1.8f, "Main Camera (Mock)"))
-             lenses.add(PhysicalLens("2", 1.2f, "Ultrawide (Mock)"))
         }
 
         return lenses
