@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, PermissionsAndroid, Platform } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import DualCameraEngine, { PhysicalLens } from './specs/NativeDualCameraEngine';
 import DualCameraView from './specs/DualCameraViewNativeComponent';
@@ -12,10 +12,36 @@ export default function CameraHUD() {
   const [layoutMode, setLayoutMode] = useState<'pip' | 'split'>('pip');
   const [isFallback, setIsFallback] = useState(false);
   const [outputDir, setOutputDir] = useState<string | null>(null);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
 
   useEffect(() => {
-    async function fetchSetup() {
+    async function requestPermissionsAndSetup() {
       try {
+        if (Platform.OS === 'android') {
+          const permissionsToRequest = [
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          ];
+
+          if (Platform.Version < 29) {
+            permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE);
+          }
+
+          const granted = await PermissionsAndroid.requestMultiple(permissionsToRequest);
+          const allGranted = Object.values(granted).every(
+            (status) => status === PermissionsAndroid.RESULTS.GRANTED
+          );
+
+          if (!allGranted) {
+            Alert.alert(
+              'Permissões Necessárias',
+              'O aplicativo precisa de permissões de Câmera e Microfone para funcionar corretamente.'
+            );
+            return;
+          }
+          setPermissionsGranted(true);
+        }
+
         const availableLenses = await DualCameraEngine.getAvailablePhysicalLenses();
 
         if (availableLenses && availableLenses.length > 0) {
@@ -35,21 +61,38 @@ export default function CameraHUD() {
           setIsFallback(true);
         }
 
-        const savedDir = await DualCameraEngine.getSavedOutputDirectory();
+        let savedDir = await DualCameraEngine.getSavedOutputDirectory();
+        if (!savedDir) {
+           // Solicita o diretório logo na inicialização se ainda não estiver configurado
+           savedDir = await DualCameraEngine.selectOutputDirectory();
+        }
         setOutputDir(savedDir);
       } catch (e) {
         console.error("Error during initial setup:", e);
       }
     }
-    fetchSetup();
+    requestPermissionsAndSetup();
   }, []);
 
   const handleRecord = async () => {
+    if (!permissionsGranted) {
+        Alert.alert('Erro', 'Permissões não concedidas.');
+        return;
+    }
     if (isRecording) {
       await DualCameraEngine.stopRecording();
       setIsRecording(false);
-      Alert.alert('Recording Stopped', 'Files saved successfully.');
+      Alert.alert('Gravação Finalizada', 'Os arquivos foram salvos com sucesso.');
     } else {
+      if (!outputDir) {
+         const newDir = await DualCameraEngine.selectOutputDirectory();
+         if (newDir) {
+             setOutputDir(newDir);
+         } else {
+             Alert.alert('Aviso', 'Selecione um diretório para salvar o vídeo.');
+             return;
+         }
+      }
       await DualCameraEngine.startRecording();
       setIsRecording(true);
     }
@@ -60,11 +103,11 @@ export default function CameraHUD() {
       const newDir = await DualCameraEngine.selectOutputDirectory();
       if (newDir) {
         setOutputDir(newDir);
-        Alert.alert('Directory Saved', 'Future recordings will be saved here.');
+        Alert.alert('Diretório Salvo', 'As próximas gravações serão salvas aqui.');
       }
     } catch (e) {
       console.error("Error selecting directory:", e);
-      Alert.alert('Error', 'Failed to select directory.');
+      Alert.alert('Erro', 'Falha ao selecionar o diretório.');
     }
   };
 
@@ -194,7 +237,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 20,
-    backdropFilter: 'blur(10px)',
   },
   settingsIcon: {
     fontSize: 20,
